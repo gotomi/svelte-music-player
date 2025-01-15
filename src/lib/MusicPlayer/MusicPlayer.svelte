@@ -7,11 +7,11 @@
 		onCurrentSongEnded = () => {}
 	} = $props();
 
-	import coverBg from './assets/gotomi.png';
-	import playButton from './assets/playButton.svg';
-	import pauseButton from './assets/pauseButton.svg';
-	import rewindButton from './assets/rewindButton.svg';
-	import forwardButton from './assets/forwardButton.svg';
+	import coverBg from './assets/gotomi.png?url';
+	import playButton from './assets/playButton.svg?url';
+	import pauseButton from './assets/pauseButton.svg?url';
+	import rewindButton from './assets/rewindButton.svg?url';
+	import forwardButton from './assets/forwardButton.svg?url';
 
 	let player = $state();
 
