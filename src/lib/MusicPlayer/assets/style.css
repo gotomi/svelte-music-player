@@ -1,0 +1,6 @@
+:root {
+	--player-theme-bgColor: var(--player-bgColor, #ffbf00);
+	--player-theme-color: var(--player-color, #1f1f1f);
+	--player-theme-progress-bgColor: var(--player-progress-bgColor, #1f1f1f);
+	--player-theme-progress-color: var(--player-progress-color, #fc4400);
+}
