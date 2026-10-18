@@ -1,13 +1,18 @@
 <script lang="ts">
-	const music = [
+	import { MusicApp, type Song } from '#lib';
+
+	const music: Song[] = [
 		{
-			audio:
-				'https://file-examples.com/storage/fe602ed48f677b2319947f8/2017/11/file_example_MP3_700KB.mp3',
+			audio: 'https://download.samplelib.com/mp3/sample-3s.mp3',
 			title: 'tell me',
-			cover: '/covers/tell-me.jpg'
+			cover: 'https://gotomi.info/covers/c-moll-jass.jpg'
+		},
+		{
+			audio: 'https://download.samplelib.com/mp3/sample-6s.mp3',
+			title: 'tell me',
+			cover: 'https://gotomi.info/covers/tell-me.jpg'
 		}
 	];
-	import { MusicApp } from '$lib/';
 </script>
 
-<MusicApp playlist={music} showPlaylist={false} />
+<MusicApp playlist={music} showPlaylist={true} />

@@ -1,12 +1,22 @@
-<script>
+<script lang="ts">
 	import './assets/style.css';
 	import MusicPlayer from './MusicPlayer.svelte';
+	import type { Playlist } from '../types';
 
-	let { playlist = {}, autoplay = false, showPlaylist = true } = $props();
+	interface Props {
+		playlist: Playlist;
+		autoplay?: boolean;
+		showPlaylist?: boolean;
+	}
+
+	let { playlist, autoplay: initialAutoplay = false, showPlaylist = true }: Props = $props();
 
 	let currentSongIndex = $state(0);
+	// svelte-ignore state_referenced_locally
+	// The autoplay prop only seeds the initial value; playback state is managed locally afterwards.
+	let autoplay = $state(initialAutoplay);
 
-	function changeSong(index) {
+	function changeSong(index: number): void {
 		currentSongIndex = index;
 		autoplay = true;
 	}
@@ -15,7 +25,7 @@
 <div class="music-app" class:showPlaylist>
 	{#if showPlaylist}
 		<div class="playlist">
-			{#each playlist as item, index}
+			{#each Array.isArray(playlist) ? playlist : [] as item, index (index)}
 				<button
 					class={index === currentSongIndex ? 'active-song' : ''}
 					onclick={() => changeSong(index)}
@@ -25,12 +35,7 @@
 			{/each}
 		</div>
 	{/if}
-	<MusicPlayer
-		{playlist}
-		{autoplay}
-		{currentSongIndex}
-		onCurrentSongEnded={() => changeSong(currentSongIndex + 1)}
-	/>
+	<MusicPlayer {playlist} {autoplay} {currentSongIndex} onCurrentSongEnded={changeSong} />
 </div>
 
 <style>

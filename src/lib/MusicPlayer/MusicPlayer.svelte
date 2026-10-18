@@ -1,11 +1,20 @@
-<script>
+<script lang="ts">
 	import './assets/style.css';
+	import type { Playlist } from '../types';
+
+	interface Props {
+		playlist: Playlist;
+		autoplay?: boolean;
+		currentSongIndex?: number;
+		onCurrentSongEnded?: (index: number) => void;
+	}
+
 	let {
 		autoplay = false,
-		playlist = {},
+		playlist,
 		currentSongIndex = 0,
 		onCurrentSongEnded = () => {}
-	} = $props();
+	}: Props = $props();
 
 	import coverBg from './assets/gotomi.png?url';
 	import playButton from './assets/playButton.svg?url';
@@ -13,10 +22,10 @@
 	import rewindButton from './assets/rewindButton.svg?url';
 	import forwardButton from './assets/forwardButton.svg?url';
 
-	let player = $state();
+	let player = $state<HTMLAudioElement | null>(null);
 
 	let playerClassName = $state('player');
-	let duration = $state();
+	let duration = $state<number | undefined>(undefined);
 
 	let progressPercent = $state(0);
 	let sliderBackground = $derived(
@@ -25,75 +34,121 @@
 
 	let toggleButton = $state(playButton);
 	let time = $state(0);
+	let seeking = $state(false);
 
-	let { audio, title, cover } = $state(
-		Array.isArray(playlist) ? playlist[currentSongIndex] : playlist
-	);
+	const currentSong = $derived(Array.isArray(playlist) ? playlist[currentSongIndex] : playlist);
+	let { audio, title, cover } = $derived(currentSong);
 	let progressDisplay = $derived.by(() => {
+		if (duration === undefined) return '--:-- / --:--';
 		return `${formatTime(time)} / ${formatTime(duration)}`;
 	});
 
-	$effect(() => {
-		({ audio, title, cover } = Array.isArray(playlist) ? playlist[currentSongIndex] : playlist);
-	});
-
-	function setProgress(e) {
-		time = (Number(progressPercent) * Number(duration)) / 100;
+	function setProgress(): void {
+		time = duration ? (Number(progressPercent) * duration) / 100 : 0;
+		seeking = false;
 	}
 
-	function setPlayerState(state) {
-		if (state === 'paused') {
-			toggleButton = pauseButton;
-			playerClassName = 'player playing';
-		} else {
-			toggleButton = playButton;
-			playerClassName = 'player';
-		}
+	function setPlayingState(isPlaying: boolean): void {
+		toggleButton = isPlaying ? pauseButton : playButton;
+		playerClassName = isPlaying ? 'player playing' : 'player';
 	}
 
-	function togglePlay() {
+	function togglePlay(): void {
+		if (!player) return;
+
 		if (player.paused) {
-			player.play();
+			player.play().catch(() => setPlayingState(false));
 		} else {
 			player.pause();
-			setPlayerState('playing');
+			setPlayingState(false);
 		}
 	}
 
-	function onPlaying() {
-		setPlayerState('paused');
+	let animationId: number | null = null;
+
+	function updateProgress(): void {
+		if (seeking) return;
+		progressPercent = duration ? Math.ceil((time / duration) * 100) : 0;
 	}
 
-	function onEnded() {
-		setPlayerState('playing');
-		if (currentSongIndex < playlist.length - 1) {
-			currentSongIndex += 1;
-			onCurrentSongEnded(currentSongIndex);
+	function tick(): void {
+		updateProgress();
+		animationId = requestAnimationFrame(tick);
+	}
+
+	function startTicking(): void {
+		if (animationId === null) {
+			animationId = requestAnimationFrame(tick);
 		}
 	}
 
-	function formatTime(seconds) {
-		const minutes = parseInt(seconds / 60);
-		const onlySeconds = (parseInt(seconds % 60) + '').padStart(2, '0');
+	function stopTicking(): void {
+		if (animationId !== null) {
+			cancelAnimationFrame(animationId);
+			animationId = null;
+		}
+	}
+
+	function onTimeUpdate(): void {
+		updateProgress();
+	}
+
+	function onSeekStart(): void {
+		seeking = true;
+	}
+
+	function onPlaying(): void {
+		setPlayingState(true);
+		startTicking();
+	}
+
+	function onPause(): void {
+		setPlayingState(false);
+		stopTicking();
+	}
+
+	function onEnded(): void {
+		setPlayingState(false);
+		stopTicking();
+		if (Array.isArray(playlist) && currentSongIndex < playlist.length - 1) {
+			const nextIndex = currentSongIndex + 1;
+			onCurrentSongEnded(nextIndex);
+		}
+	}
+
+	function formatTime(seconds: number): string {
+		if (isNaN(seconds)) return '0:00';
+		const minutes = Math.floor(seconds / 60);
+		const onlySeconds = Math.floor(Math.abs(seconds) % 60)
+			.toString()
+			.padStart(2, '0');
 		return `${minutes}:${onlySeconds}`;
 	}
 
-	// let globalID;
-
-	function onTimeUpdate() {
-		progressPercent = Math.ceil((time / duration) * 100);
-		requestAnimationFrame(onTimeUpdate);
-	}
-
-	function onLoadedMetaData() {
+	function onLoadedMetaData(): void {
 		if (autoplay) togglePlay();
 	}
-	function onKeyDown(e) {
-		e.preventDefault();
-		if (e.keyCode === 32) {
-			togglePlay();
-		}
+
+	function isEditableTarget(target: EventTarget | null): boolean {
+		if (!(target instanceof HTMLElement)) return false;
+		if (target.isContentEditable) return true;
+		if (target instanceof HTMLInputElement) return target.type !== 'range';
+		return (
+			target instanceof HTMLSelectElement ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLButtonElement
+		);
 	}
+
+	function onKeyDown(e: KeyboardEvent): void {
+		if (e.code !== 'Space' || isEditableTarget(e.target)) return;
+		e.preventDefault();
+		togglePlay();
+	}
+
+	$effect(() => {
+		return stopTicking;
+	});
 </script>
 
 <svelte:window onkeydown={onKeyDown} />
@@ -101,14 +156,19 @@
 <div class="audioplayer">
 	<div>
 		<div class={playerClassName}>
-			<img src={cover} class="author" alt="" width="200" height="200" />
+			<img src={cover} class="author" alt={`Album cover for ${title}`} width="200" height="200" />
 			<img src={coverBg} class="cover-bg" alt="" width="200" height="200" />
 		</div>
 	</div>
 	<div class="panel">
 		<h2 class="track-title">
 			<button class="icon" onclick={togglePlay}
-				><img src={toggleButton} alt="play" width="50" height="50" /></button
+				><img
+					src={toggleButton}
+					alt={toggleButton === pauseButton ? 'pause' : 'play'}
+					width="50"
+					height="50"
+				/></button
 			>
 			{title}
 		</h2>
@@ -119,10 +179,12 @@
 				id="volume"
 				bind:value={progressPercent}
 				name="volume"
+				aria-label="Seek"
 				min="0"
 				max="100"
 				step="1"
-				onclick={setProgress}
+				oninput={onSeekStart}
+				onchange={setProgress}
 				style="background: {sliderBackground}"
 			/>
 		</div>
@@ -137,6 +199,7 @@
 			<span class="progress-display" id="progress">{progressDisplay}</span>
 		</div>
 		<!-- svelte-ignore a11y_media_has_caption -->
+		<!-- The audio element is the player engine itself: it renders no controls and has no captions. -->
 		<audio
 			src={audio}
 			bind:this={player}
@@ -145,6 +208,7 @@
 			ontimeupdate={onTimeUpdate}
 			onloadedmetadata={onLoadedMetaData}
 			onplaying={onPlaying}
+			onpause={onPause}
 			onended={onEnded}
 			preload="metadata"
 		></audio>
