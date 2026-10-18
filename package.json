@@ -25,6 +25,10 @@
 	"svelte": "./dist/index.js",
 	"types": "./dist/index.d.ts",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/gotomi/svelte-music-player.git"
+	},
 	"imports": {
 		"#lib": "./src/lib/index.ts",
 		"#lib/*": "./src/lib/*"
